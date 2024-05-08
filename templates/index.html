@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Object Detection and Color Analysis</title>
+</head>
+<body>
+    <h1>Object Detection and Color Analysis</h1>
+    <form id="imageForm" action="/detect_and_analyze" method="post" enctype="multipart/form-data">
+        <input type="file" name="image" accept="image/*" required>
+        <button type="submit">Submit</button>
+    </form>
+
+    <div id="result">
+        <!-- 결과가 여기에 표시됩니다 -->
+    </div>
+
+    <script>
+        document.getElementById('imageForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            var formData = new FormData(this);
+            fetch('/detect_and_analyze', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                var resultDiv = document.getElementById('result');
+                resultDiv.innerHTML = `
+                    <h2>Object Class: ${data.object_class}</h2>
+                    <h2>Closest Color Category: ${data.closest_color_category}</h2>
+                    <img src="data:image/jpeg;base64,${data.main_color_image}" alt="Main Color">
+                `;
+            })
+            .catch(error => console.error('Error:', error));
+        });
+    </script>
+</body>
+</html>
