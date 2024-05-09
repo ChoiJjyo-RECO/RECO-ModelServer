@@ -30,6 +30,24 @@ cred = credentials.Certificate('firebase_key.json')
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
+def map_object_class(class_list):
+    # 클래스 이름을 매핑할 딕셔너리 생성
+    class_mapping = {
+        'Tshirt': '티셔츠',
+        'dress': '원피스',
+        'jacket': '자켓',
+        'pants': '바지',
+        'shirt': '셔츠',
+        'short': '반바지',
+        'skirt': '치마',
+        'sweater': '긴소매'
+    }
+    
+    # 각 클래스를 매핑된 값으로 변환
+    mapped_classes = [class_mapping.get(cls, cls) for cls in class_list]
+    
+    return mapped_classes
+
 @app.route('/')
 def index():
   return render_template('index.html')
@@ -75,6 +93,7 @@ def detect_and_analyze_color():
             highest_confidence = box.conf
     idx2class = np.array([value for key,value in results[0].names.items()])
     object_class = idx2class[highest_prob_box.cls.to('cpu').numpy().astype('int')][0]
+    object_class = map_object_class(object_class)
 
     # 박스 좌표 얻기
     x1, y1, x2, y2 = highest_prob_box.xyxy[0]
