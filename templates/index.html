@@ -7,23 +7,16 @@
 </head>
 <body>
     <h1>Object Detection and Color Analysis</h1>
-    <form id="imageForm" action="/detect_and_analyze" method="post" enctype="multipart/form-data">
-        <input type="file" name="image" accept="image/*" required>
-        <button type="submit">Submit</button>
-    </form>
+
+    <button id="showBtn">Use Firestore Image</button>
 
     <div id="result">
         <!-- 결과가 여기에 표시됩니다 -->
     </div>
 
     <script>
-        document.getElementById('imageForm').addEventListener('submit', function(event) {
-            event.preventDefault();
-            var formData = new FormData(this);
-            fetch('/detect_and_analyze', {
-                method: 'POST',
-                body: formData
-            })
+        document.getElementById('showBtn').addEventListener('click', function(event) {
+            fetch('/detect_and_analyze')
             .then(response => response.json())
             .then(data => {
                 var resultDiv = document.getElementById('result');
@@ -35,6 +28,7 @@
             })
             .catch(error => console.error('Error:', error));
         });
+
     </script>
 </body>
 </html>

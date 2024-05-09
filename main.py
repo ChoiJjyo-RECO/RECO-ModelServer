@@ -1,33 +1,50 @@
 import base64
 from flask import Flask, request, jsonify, render_template
 import cv2
+import requests
 from ultralytics import YOLO
 import numpy as np
+import firebase_admin
+from firebase_admin import credentials
+from firebase_admin import firestore
+import json
 
 app = Flask(__name__)
 
 # YOLO 모델 초기화
 model = YOLO("model\clothesDetectModel_pretrained_false_30.pt")
 
-@app.route('/') 
-def home():
-   return 'This is Home!'
+cred = credentials.Certificate('firebase_key.json')
+firebase_admin.initialize_app(cred)
+db = firestore.client()
+uid = 'q9u1gUypngbpZbKny5vwqDwm6qT2'
+doc_id = '20240509'
 
 @app.route('/index')
 def index():
   return render_template('index.html')
 
-@app.route('/detect_and_analyze', methods=['POST'])
+@app.route('/detect_and_analyze')
 def detect_and_analyze_color():
-    # POST 요청에서 이미지 파일을 받음
-    if 'image' not in request.files:
-        return jsonify({'error': 'No image found'})
+    doc_ref = db.collection("q9u1gUypngbpZbKny5vwqDwm6qT2").document(doc_id)
+    doc = doc_ref.get()
+    if doc.exists:
+       data = doc.to_dict()
+       image_url = data.get("imgURL")
 
-    image = request.files['image'].read()
+    #image_url = storage.child("11283.jpg").get_url(None)
+    print(image_url)
 
-    # 이미지를 OpenCV 형식으로 디코딩
+    # 이미지를 다운로드하여 바이트 데이터로 변환
+    response = requests.get(image_url)
+    image = response.content
+    
+     # 이미지를 OpenCV 형식으로 디코딩
     nparr = np.frombuffer(image, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if img is None:
+    # 이미지 로드에 실패했을 경우 오류 처리
+      print("이미지를 로드할 수 없습니다.")
 
     # YOLO 모델을 사용하여 객체 감지 수행
     results = model.predict(img)
@@ -90,6 +107,14 @@ def detect_and_analyze_color():
 
     # 거리가 가장 작은 색상 카테고리 선택
     closest_color = min(distances, key=distances.get)
+
+    data = {
+       'clothes' : object_class,
+       'closet_color_category': closest_color,
+       'closet_color_RGB': main_color_list,
+    }
+
+    doc_ref.update(data)
 
     # 결과 반환
     return jsonify({
