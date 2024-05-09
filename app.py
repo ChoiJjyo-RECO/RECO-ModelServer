@@ -7,9 +7,21 @@ import numpy as np
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import firestore
-import json
+from pyngrok import conf, ngrok
+import os
+from dotenv import load_dotenv
 
 app = Flask(__name__)
+
+load_dotenv()
+
+NGROK_KEY = os.getenv("NGROK_KEY")
+conf.get_default().auth_token = NGROK_KEY
+http_turnel = ngrok.connect(5000)
+tunnels = ngrok.get_tunnels()
+
+for kk in tunnels:
+   print(kk) #forwarding 정보 출력
 
 # YOLO 모델 초기화
 model = YOLO("model\clothesDetectModel_pretrained_false_30.pt")
@@ -17,16 +29,18 @@ model = YOLO("model\clothesDetectModel_pretrained_false_30.pt")
 cred = credentials.Certificate('firebase_key.json')
 firebase_admin.initialize_app(cred)
 db = firestore.client()
-uid = 'q9u1gUypngbpZbKny5vwqDwm6qT2'
-doc_id = '20240509'
 
-@app.route('/index')
+@app.route('/')
 def index():
   return render_template('index.html')
 
 @app.route('/detect_and_analyze')
 def detect_and_analyze_color():
-    doc_ref = db.collection("q9u1gUypngbpZbKny5vwqDwm6qT2").document(doc_id)
+    uid = request.args.get('uid')
+    doc_id = request.args.get('doc_id')
+
+    # Firestore의 문서 참조 설정
+    doc_ref = db.collection(uid).document(doc_id)
     doc = doc_ref.get()
     if doc.exists:
        data = doc.to_dict()
@@ -124,4 +138,5 @@ def detect_and_analyze_color():
     })
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8000, debug=True)
+    app.run()
+    #app.run(host='0.0.0.0', port=8000, debug=True)
