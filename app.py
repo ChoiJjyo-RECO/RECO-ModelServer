@@ -30,7 +30,7 @@ cred = credentials.Certificate('firebase_key.json')
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-def map_object_class(class_list):
+def map_object_class(class_name):
     # 클래스 이름을 매핑할 딕셔너리 생성
     class_mapping = {
         'Tshirt': '티셔츠',
@@ -44,7 +44,7 @@ def map_object_class(class_list):
     }
     
     # 각 클래스를 매핑된 값으로 변환
-    mapped_classes = [class_mapping.get(cls, cls) for cls in class_list]
+    mapped_classes = class_mapping.get(class_name)
     
     return mapped_classes
 
@@ -57,7 +57,7 @@ def detect_and_analyze_color():
     uid = request.args.get('uid')
     doc_id = request.args.get('doc_id')
 
-    # Firestore의 문서 참조 설정
+    # Firestore에서 이미지 url 가져오기 
     doc_ref = db.collection(uid).document(doc_id)
     doc = doc_ref.get()
     if doc.exists:
@@ -65,7 +65,7 @@ def detect_and_analyze_color():
        image_url = data.get("imgURL")
 
     #image_url = storage.child("11283.jpg").get_url(None)
-    print(image_url)
+    #print(image_url)
 
     # 이미지를 다운로드하여 바이트 데이터로 변환
     response = requests.get(image_url)
@@ -93,8 +93,9 @@ def detect_and_analyze_color():
             highest_confidence = box.conf
     idx2class = np.array([value for key,value in results[0].names.items()])
     object_class = idx2class[highest_prob_box.cls.to('cpu').numpy().astype('int')][0]
+    print(object_class)
     object_class = map_object_class(object_class)
-
+    print(object_class)
     # 박스 좌표 얻기
     x1, y1, x2, y2 = highest_prob_box.xyxy[0]
 
