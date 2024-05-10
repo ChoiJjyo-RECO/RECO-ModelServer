@@ -58,14 +58,12 @@ def detect_and_analyze_color():
     doc_id = request.args.get('doc_id')
 
     # Firestore에서 이미지 url 가져오기 
-    doc_ref = db.collection(uid).document(doc_id)
+    doc_ref = db.collection("users").document(uid).collection("closet").document(doc_id)
     doc = doc_ref.get()
     if doc.exists:
        data = doc.to_dict()
        image_url = data.get("imgURL")
 
-    #image_url = storage.child("11283.jpg").get_url(None)
-    #print(image_url)
 
     # 이미지를 다운로드하여 바이트 데이터로 변환
     response = requests.get(image_url)
@@ -154,7 +152,8 @@ def detect_and_analyze_color():
     return jsonify({
         'object_class': object_class,
         'closest_color_category': closest_color,
-        'main_color_image': main_color_image_base64
+        'main_color_image': main_color_image_base64,
+        'image_URL': image_url
     })
 
 if __name__ == '__main__':
