@@ -10,6 +10,7 @@ from firebase_admin import firestore
 from pyngrok import conf, ngrok
 import os
 from dotenv import load_dotenv
+from skimage.color import rgb2lab, deltaE_ciede2000
 
 app = Flask(__name__)
 
@@ -47,6 +48,32 @@ def map_object_class(class_name):
     mapped_classes = class_mapping.get(class_name)
     
     return mapped_classes
+
+def adjust_saturation_and_brightness(color, saturation_amount=3.8, brightness_amount=0.9):
+    # HSV 색 공간으로 변환 (Hue, Saturation, Value)
+    color_hsv = np.array([[color]], dtype=np.uint8)
+    color_hsv = cv2.cvtColor(color_hsv, cv2.COLOR_RGB2HSV)
+    
+    # 채도와 밝기 조절
+    color_hsv = np.array([[[
+        color_hsv[0,0,0], # Hue 값은 그대로 유지
+        max(0, min(255, color_hsv[0,0,1] * saturation_amount)), # 채도 조절
+        max(0, min(255, color_hsv[0,0,2] * brightness_amount)) # 밝기 조절
+    ]]], dtype=np.uint8)
+    
+    # 다시 RGB 색 공간으로 변환
+    adjusted_color = cv2.cvtColor(color_hsv, cv2.COLOR_HSV2RGB)[0,0]
+    
+    return adjusted_color.tolist()
+
+def extract_rgb_and_adjust(image):
+    r, g, b = image[:, :, 0], image[:, :, 1], image[:, :, 2]
+    mean_r, mean_g, mean_b = np.mean(r), np.mean(g), np.mean(b)
+    
+    # 색상 조절
+    adjusted_color = adjust_saturation_and_brightness([mean_r, mean_g, mean_b])
+    
+    return adjusted_color
 
 @app.route('/')
 def index():
@@ -100,50 +127,67 @@ def detect_and_analyze_color():
     # 이미지에서 객체 영역 자르기
     cropped_image = img[int(y1):int(y2), int(x1):int(x2)]
 
-    # 객체 영역에서 주요 색상 추출
-    main_color = np.average(cropped_image, axis=(0,1))
-    main_color_list = main_color.tolist()
-
-    # 주요 색상을 표시하는 이미지 생성
-    img_temp = cropped_image.copy()
-    img_temp[:, :, 0], img_temp[:, :, 1], img_temp[:, :, 2] = main_color
-    _, encoded_image = cv2.imencode('.jpg', img_temp)
-    main_color_image_base64 = base64.b64encode(encoded_image).decode('utf-8')
-
     # 미리 정의된 색상 카테고리와 그에 해당하는 RGB 값
     color_categories = {
         '검정색': [0, 0, 0],
         '하얀색': [255, 255, 255],
-        '회색': [128, 128, 128],
+        '회색': [120, 120, 120],
         '빨간색': [255, 0, 0],
         '핑크색': [255, 192, 203],
         '주황색': [255, 165, 0],
         '베이지': [245, 245, 220],
-        '갈색': [153, 56, 0],
+        '갈색': [88, 57, 39],
         '노랑색': [255, 255, 0],
         '초록색': [29, 219, 22],
         '카키색': [71, 102, 0],
         '민트색': [189, 252, 201],
         '파란색': [0, 0, 255],
-        '남색': [0, 0, 128],
+        '남색': [24, 41, 68],
+        '청색': [23, 39, 55],
         '하늘색': [135, 206, 235],
-        '보라색': [128, 0, 128],
-        '라벤더': [230, 230, 250],
+        '보라색': [102, 51, 153],
+        '라벤더': [172, 120, 186],
         '와인색': [114, 47, 55],
         '네온': [183, 255, 0],
         '금색': [191, 155, 48],
     }
 
-    # 주어진 RGB 값과 각 색상 카테고리의 거리 계산
-    distances = {color: np.linalg.norm(np.array(main_color_list) - np.array(color_value)) for color, color_value in color_categories.items()}
+    # 객체 영역에서 주요 색상 추출
+    main_color_list = extract_rgb_and_adjust(cropped_image)
 
-    # 거리가 가장 작은 색상 카테고리 선택
-    closest_color = min(distances, key=distances.get)
+    # 주요 색상을 표시하는 이미지 생성
+    #img_temp = cropped_image.copy()
+    #img_temp[:, :, 0], img_temp[:, :, 1], img_temp[:, :, 2] = main_color_list
+    #_, encoded_image = cv2.imencode('.jpg', img_temp)
+    #main_color_image_base64 = base64.b64encode(encoded_image).decode('utf-8')
+
+    main_color_list.reverse()
+    # 주어진 RGB 값과 각 색상 카테고리의 거리 계산
+    for color in color_categories:
+        rgb = np.array(color_categories[color], dtype=float) / 255
+        lab = rgb2lab(rgb.reshape(1, 1, 3))
+        color_categories[color] = lab.flatten()
+
+    # 주요컬러 LABspace 상 색상으로 변경
+    average_color = np.array(main_color_list, dtype=float) / 255
+    average_color_lab = rgb2lab(average_color.reshape(1, 1, 3)).flatten()
+    print(average_color_lab)
+
+    # LAB space 상 비슷한 색상 추출
+    closest_color = None
+    min_distance = float('inf')
+
+    for color_name, color_value in color_categories.items():
+        distance = deltaE_ciede2000(color_value, average_color_lab)
+        if distance < min_distance:
+            min_distance = distance
+            closest_color = color_name
+
 
     data = {
        'clothes' : object_class,
-       'closet_color_category': closest_color,
-       'closet_color_RGB': main_color_list,
+       'closetColorCategory': closest_color,
+       'closetColorRGB': main_color_list,
     }
 
     doc_ref.update(data)
@@ -152,7 +196,7 @@ def detect_and_analyze_color():
     return jsonify({
         'object_class': object_class,
         'closest_color_category': closest_color,
-        'main_color_image': main_color_image_base64,
+        #'main_color_image': main_color_image_base64,
         'image_URL': image_url
     })
 
