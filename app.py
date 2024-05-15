@@ -117,7 +117,10 @@ def detect_and_analyze_color():
             highest_prob_box = box
             highest_confidence = box.conf
     idx2class = np.array([value for key,value in results[0].names.items()])
-    object_class = idx2class[highest_prob_box.cls.to('cpu').numpy().astype('int')][0]
+    if highest_prob_box:
+        object_class = idx2class[highest_prob_box.cls.to('cpu').numpy().astype('int')][0]
+    else:
+        object_class = '옷을 인식할 수 없습니다.'
     print(object_class)
     object_class = map_object_class(object_class)
     print(object_class)
@@ -137,7 +140,7 @@ def detect_and_analyze_color():
         '주황색': [255, 165, 0],
         '베이지': [245, 245, 220],
         '갈색': [88, 57, 39],
-        '노랑색': [255, 255, 0],
+        #'노랑색': [255, 255, 0],
         '초록색': [29, 219, 22],
         '카키색': [71, 102, 0],
         '민트색': [189, 252, 201],
@@ -149,7 +152,7 @@ def detect_and_analyze_color():
         '라벤더': [172, 120, 186],
         '와인색': [114, 47, 55],
         '네온': [183, 255, 0],
-        '금색': [191, 155, 48],
+        '노랑색': [191, 155, 48],
     }
 
     # 객체 영역에서 주요 색상 추출
